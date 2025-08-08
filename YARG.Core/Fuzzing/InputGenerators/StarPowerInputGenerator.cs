@@ -100,10 +100,17 @@ namespace YARG.Core.Fuzzing.InputGenerators
                 // Add note hits
                 inputs.Add(CreateNoteInput(time, instrument));
                 
-                // Occasionally add star power activation
-                if (_random.NextDouble() < 0.1) // 10% chance
+                // Add star power activation more frequently for better drain testing
+                if (_random.NextDouble() < 0.25) // 25% chance for better coverage
                 {
                     inputs.Add(CreateStarPowerActivationInput(time, instrument));
+                    
+                    // Add deactivation after some time to test drain behavior
+                    var deactivationTime = time + 1.5 + _random.NextDouble() * 2.0; // 1.5-3.5 seconds later
+                    if (deactivationTime < endTime)
+                    {
+                        inputs.Add(CreateStarPowerActivationInput(deactivationTime, instrument, false));
+                    }
                 }
             }
 
@@ -132,17 +139,17 @@ namespace YARG.Core.Fuzzing.InputGenerators
         /// <summary>
         /// Creates a star power activation input for the specified instrument.
         /// </summary>
-        private GameInput CreateStarPowerActivationInput(double time, Instrument instrument)
+        private GameInput CreateStarPowerActivationInput(double time, Instrument instrument, bool activate = true)
         {
             return instrument switch
             {
                 Instrument.FiveFretGuitar or Instrument.FiveFretBass =>
-                    GameInput.Create(time, GuitarAction.StarPower, true),
+                    GameInput.Create(time, GuitarAction.StarPower, activate),
                 Instrument.ProKeys =>
-                    GameInput.Create(time, ProKeysAction.StarPower, true),
+                    GameInput.Create(time, ProKeysAction.StarPower, activate),
                 Instrument.Vocals =>
-                    GameInput.Create(time, VocalsAction.StarPower, true),
-                _ => GameInput.Create(time, GuitarAction.StarPower, true)
+                    GameInput.Create(time, VocalsAction.StarPower, activate),
+                _ => GameInput.Create(time, GuitarAction.StarPower, activate)
             };
         }
 
@@ -390,12 +397,20 @@ namespace YARG.Core.Fuzzing.InputGenerators
                 foreach (var phrase in phrases.Where(p => p.Time >= startTime && p.Time <= endTime))
                 {
                     // Add star power activation at random points during or after the phrase
-                    if (_random.NextDouble() < 0.3) // 30% chance to activate star power
+                    // Increased chance for better drain testing coverage
+                    if (_random.NextDouble() < 0.7) // 70% chance to activate star power for better testing
                     {
                         var activationTime = phrase.Time + phrase.TimeLength + _random.NextDouble() * 2.0; // 0-2 seconds after phrase
                         if (activationTime <= endTime)
                         {
                             inputs.Add(CreateStarPowerActivationInput(activationTime, instrument));
+                            
+                            // Add deactivation after some time to test drain behavior
+                            var deactivationTime = activationTime + 2.0 + _random.NextDouble() * 3.0; // 2-5 seconds later
+                            if (deactivationTime <= endTime)
+                            {
+                                inputs.Add(CreateStarPowerActivationInput(deactivationTime, instrument, false));
+                            }
                         }
                     }
                 }

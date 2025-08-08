@@ -175,7 +175,7 @@ namespace YARG.Core.Fuzzing.InputGenerators
         /// <summary>
         /// Creates a star power activation input for the specified instrument.
         /// </summary>
-        private GameInput CreateStarPowerActivation(double time, Instrument instrument, bool activate = true)
+        public GameInput CreateStarPowerActivation(double time, Instrument instrument, bool activate = true)
         {
             return instrument switch
             {

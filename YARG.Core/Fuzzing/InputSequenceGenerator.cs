@@ -43,7 +43,19 @@ namespace YARG.Core.Fuzzing
         {
             if (chart == null) throw new ArgumentNullException(nameof(chart));
 
-            return _starPowerGenerator.GenerateStarPowerFocusedInputs(chart, instrument, difficulty);
+            var inputs = new List<GameInput>();
+            
+            // Generate base star power focused inputs
+            inputs.AddRange(_starPowerGenerator.GenerateStarPowerFocusedInputs(chart, instrument, difficulty));
+            
+            // Add comprehensive star power activation patterns for drain testing
+            var startTime = chart.GetStartTime();
+            var endTime = Math.Min(chart.GetEndTime(), startTime + 60.0);
+            inputs.AddRange(GenerateStarPowerActivationPatterns(startTime, endTime, instrument));
+            
+            // Sort by time and return
+            inputs.Sort((a, b) => a.Time.CompareTo(b.Time));
+            return inputs.ToArray();
         }
 
         /// <summary>
@@ -187,6 +199,60 @@ namespace YARG.Core.Fuzzing
                     GameInput.Create(time, VocalsAction.Pitch, 220.0f + (float)random.NextDouble() * 440.0f), // Random pitch
                 _ => GameInput.Create(time, GuitarAction.GreenFret, true) // Default
             };
+        }
+
+        /// <summary>
+        /// Generates comprehensive star power activation patterns for testing SP drain functionality.
+        /// </summary>
+        /// <param name="startTime">Start time in seconds</param>
+        /// <param name="endTime">End time in seconds</param>
+        /// <param name="instrument">Target instrument</param>
+        /// <returns>Array of star power activation inputs</returns>
+        protected virtual GameInput[] GenerateStarPowerActivationPatterns(double startTime, double endTime, Instrument instrument)
+        {
+            var inputs = new List<GameInput>();
+            var duration = endTime - startTime;
+            
+            // Pattern 1: Early activation to test full drain cycle
+            if (duration > 10.0) // Only if we have enough time
+            {
+                var earlyActivationTime = startTime + 2.0;
+                inputs.Add(_activationGenerator.CreateStarPowerActivation(earlyActivationTime, instrument));
+            }
+            
+            // Pattern 2: Multiple short activations to test activation/deactivation consistency
+            if (duration > 20.0)
+            {
+                for (double time = startTime + 5.0; time < endTime - 5.0; time += 8.0)
+                {
+                    inputs.Add(_activationGenerator.CreateStarPowerActivation(time, instrument));
+                    // Deactivate after 3 seconds to test partial drain
+                    if (time + 3.0 < endTime)
+                    {
+                        inputs.Add(_activationGenerator.CreateStarPowerActivation(time + 3.0, instrument, false));
+                    }
+                }
+            }
+            
+            // Pattern 3: Rapid activation/deactivation for edge case testing
+            if (duration > 15.0)
+            {
+                var rapidTestStart = startTime + duration * 0.6; // Start at 60% through
+                inputs.AddRange(_activationGenerator.GenerateRapidActivations(rapidTestStart, Math.Min(rapidTestStart + 5.0, endTime), instrument));
+            }
+            
+            // Pattern 4: Boundary timing activations
+            inputs.AddRange(_activationGenerator.GenerateBoundaryActivations(startTime, endTime, instrument));
+            
+            // Pattern 5: Sub-frame precision activations for timing consistency
+            if (duration > 30.0)
+            {
+                var subFrameStart = startTime + duration * 0.3;
+                var subFrameEnd = Math.Min(subFrameStart + 10.0, endTime);
+                inputs.AddRange(_activationGenerator.GenerateSubFrameActivations(subFrameStart, subFrameEnd, instrument));
+            }
+            
+            return inputs.ToArray();
         }
 
         /// <summary>
